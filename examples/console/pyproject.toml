@@ -1,0 +1,11 @@
+[project]
+name = "ai-api-client"
+version = "0.1.0"
+description = "Headless Python client for the Trusta AST backend: model load/unload, OpenAI-compatible chat, and fine-tune training"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "openai>=2.26.0",
+    "pydantic>=2.12.5",
+    "requests>=2.32.5",
+]

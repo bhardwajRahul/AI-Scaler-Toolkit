@@ -1,0 +1,33 @@
+*/__pycache__/*
+
+# Environment variables (敏感資訊)
+.env
+
+# Python
+*.pyc
+__pycache__/
+*.so
+*.egg-info/
+build/
+*venv*/
+
+# Model files and caches
+*offload/
+*.bin
+*.safetensors
+models/
+checkpoints/
+.cache/
+finetune_output/
+service/utils/llama.cpp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/

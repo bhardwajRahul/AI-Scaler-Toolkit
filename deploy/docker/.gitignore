@@ -1,0 +1,4 @@
+output/
+.workdir/
+uv
+*.log

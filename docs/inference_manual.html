@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inference Service 教學手冊 - Trusta AST Backend</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --text-color: #334155;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --border-color: #e2e8f0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            min-height: 100vh;
+        }
+
+        header {
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            border-left: 5px solid var(--primary-color);
+            padding-left: 1rem;
+            margin-top: 3rem;
+        }
+
+        h3 {
+            color: #475569;
+            margin-top: 2rem;
+        }
+
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            color: #ef4444;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .note {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .file-path {
+            font-family: monospace;
+            color: #64748b;
+            font-size: 0.9em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--primary-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgb(0 0 0 / 0.1);
+        }
+
+        .mermaid {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .nav-toc {
+            background: #f1f5f9;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .nav-toc ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .nav-toc a {
+            text-decoration: none;
+            color: var(--primary-color);
+            display: block;
+            padding: 0.5rem 0;
+        }
+
+        .nav-toc a:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+    </style>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Trusta AST Inference Service 教學手冊</h1>
+            <p>本文檔詳細說明了推理服務的架構、API 流程以及程式碼結構，適用於團隊教育訓練。</p>
+        </header>
+
+        <div class="nav-toc">
+            <h3>目錄</h3>
+            <ul>
+                <li><a href="#architecture">1. 系統架構總覽 (Architecture)</a></li>
+                <li><a href="#api-flow">2. 關鍵 API 與流程 (Key APIs)</a></li>
+                <li><a href="#code-structure">3. 程式碼結構詳解 (Code Structure)</a></li>
+                <li><a href="#process-details">4. 推理流程細節 (Inference Process)</a></li>
+                <li><a href="#config-guide">5. 配置與參數說明 (Configuration)</a></li>
+                <li><a href="#troubleshooting">6. 常見問題與處理 (Troubleshooting)</a></li>
+            </ul>
+        </div>
+
+        <section id="architecture">
+            <h2>1. 系統架構總覽</h2>
+            <p>本服務是一個基於 <strong>FastAPI</strong> 的高性能 LLM 推理伺服器，專為處理大型模型設計。為了避免 Python 的 GIL 限制以及更有效地管理 GPU 記憶體 (VRAM)，我們採用了<strong>多進程隔離 (Multi-process Isolation)</strong> 架構。</p>
+            
+            <div class="card">
+                <h3>核心設計模式：Singleton Manager & Process Isolation</h3>
+                <p>主要組件透過單例模式 (Singleton) 管理，確保全域狀態一致性，而繁重的模型加載與推理工作則被隔離在獨立的 Worker Process 中。</p>
+                <ul>
+                    <li><strong>主進程 (FastAPI)</strong>: 處理 HTTP 請求、路由分發、背景任務排程。</li>
+                    <li><strong>Worker Process (Model Inference)</strong>: 專職負責 PyTorch 模型加載、權重持有及推理計算。</li>
+                    <li><strong>優勢</strong>: 當發生 OOM (Out of Memory) 時，可以安全地終止 Worker Process 並重啟，確保 VRAM 被完全釋放，不會導致整個 Web Service 崩潰。</li>
+                </ul>
+            </div>
+
+            <div class="mermaid">
+            graph TD
+                Client[Client / Frontend] -- HTTP API --> API[FastAPI Server (service/app.py)]
+                
+                subgraph MainProcess [Main Process]
+                    API -- calls --> MM[ModelManager (Singleton)]
+                    SM[SessionManager] -- loads/saves --> Redis[(Redis/Memory)]
+                    RM[RagManager] -- retrieves --> VectorDB[(Chroma/SQLite)]
+                end
+                
+                subgraph WorkerProcess [Isolated Worker Process]
+                    MM -- Queue (IPC) --> MIP[ModelInferenceProcess]
+                    MIP -- uses --> Worker[_model_worker_process]
+                    Worker -- holds --> Model[HF Transformer Model]
+                    Worker -- streams --> Streamer[TextIteratorStreamer]
+                end
+
+                API -- reads status --> MM
+                Worker -- puts result --> MM
+            </div>
+        </section>
+
+        <section id="api-flow">
+            <h2>2. 關鍵 API 與流程</h2>
+            <p>所有的 API 入口點定義在 <code>service/app.py</code> 中。以下是您最常交互的幾個端點。</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>1. 加載模型 (Load Model)</h3>
+                    <code>POST /inference/load_model</code>
+                    <p><strong>行為:</strong> 非同步。</p>
+                    <p>API 收到請求後會立即返回 <code>loading</code> 狀態，實際載入在背景執行。需透過 <code>/status</code> 輪詢進度。</p>
+                    <p><strong>關鍵參數:</strong> <code>model_name</code>, <code>quantization</code> (int4/int8), <code>offload_folder</code>。</p>
+                </div>
+                
+                <div class="card">
+                    <h3>2. 檢查狀態 (Check Status)</h3>
+                    <code>GET /inference/status</code>
+                    <p><strong>行為:</strong> 同步。</p>
+                    <p>返回當前模型是否載入完成、是否有錯誤 (OOM)、以及目前使用的 Device Map。</p>
+                </div>
+
+                <div class="card">
+                    <h3>3. 文字對話 (Chat)</h3>
+                    <code>POST /inference/chat</code>
+                    <p><strong>行為:</strong> 支援串流 (SSE) 與非串流。</p>
+                    <p>這是主要的推理接口。支援 Session 記憶、RAG 檢索增強。</p>
+                    <p><strong>關鍵參數:</strong> <code>message</code>, <code>stream=true</code>, <code>session_id</code>。</p>
+                </div>
+
+                <div class="card">
+                    <h3>4. 記憶體估算 (Estimate)</h3>
+                    <code>POST /inference/estimate_memory</code>
+                    <p><strong>行為:</strong> 純計算，不載入模型。</p>
+                    <p>在實際載入前，幫助使用者判斷硬體是否足夠執行特定量化設定的模型。</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="code-structure">
+            <h2>3. 程式碼結構詳解</h2>
+            <p>理解專案結構有助於快速定位問題。</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>檔案路徑</th>
+                        <th>角色與功能</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>service/app.py</code></td>
+                        <td><strong>入口點</strong>。定義 API 路由、請求驗證、CORS 設定以及生命週期管理。</td>
+                    </tr>
+                    <tr>
+                        <td><code>service/model_manager.py</code></td>
+                        <td><strong>中介者</strong>。Singleton 類別，負責協調 API 層與底層 Worker 進程的通訊。提供 <code>start_loading</code>, <code>generate_stream</code> 等高層方法。</td>
+                    </tr>
+                    <tr>
+                        <td><code>service/inference/model_inference_process.py</code></td>
+                        <td><strong>核心引擎</strong>。管理 <code>multiprocessing.Process</code>。
+                            <ul>
+                                <li><code>ModelInferenceProcess</code>: 進程控制器 (Start/Stop)。</li>
+                                <li><code>_model_worker_process</code>: 實際運行在子進程的 Loop，監聽指令 (Load/Generate)。</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><code>service/inference/generate/generator_worker.py</code></td>
+                        <td><strong>生成邏輯</strong>。包含 <code>handle_generate_request</code> 和 <code>handle_generate_stream_request</code>。負責調用 HF <code>model.generate()</code> 並處理 Streamer 輸出。</td>
+                    </tr>
+                    <tr>
+                        <td><code>service/config_models.py</code></td>
+                        <td><strong>資料模型</strong>。定義 Pydantic Models (Request/ResponseSchemas)，如 <code>InferenceConfig</code>, <code>ChatRequest</code>。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="process-details">
+            <h2>4. 推理流程細節 (Deep Dive)</h2>
+            
+            <h3>Step 1: 模型加載 (Load Flow)</h3>
+            <ol>
+                <li>Client 發送 <code>POST /inference/load_model</code>。</li>
+                <li><code>app.py</code> 呼叫 <code>model_manager.start_loading(config)</code>。</li>
+                <li><code>ModelManager</code> 將 <code>{command: "load", config: ...}</code> 推送到 <strong>Request Queue</strong>。</li>
+                <li><strong>Worker Process</strong> 從 Queue 取出指令，開始執行：
+                    <ul>
+                        <li>使用 <code>AutoTokenizer.from_pretrained</code> 載入 Tokenizer。</li>
+                        <li>根據 Config 計算 <code>BitsAndBytesConfig</code> (若使用量化)。</li>
+                        <li>計算 Smart Device Map (若使用 auto device map)。</li>
+                        <li>執行 <code>AutoModelForCausalLM.from_pretrained</code> 載入權重。</li>
+                    </ul>
+                </li>
+                <li>載入過程中，Worker 持續將進度推送到 <strong>Status Queue</strong>。</li>
+                <li>載入完成，Worker 推送 <code>status: ready</code>。</li>
+            </ol>
+
+            <h3>Step 2: 對話生成 (Chat Generation Flow)</h3>
+            <div class="note">
+                <strong>特別注意：</strong> 推理過程完全在 Worker Process 內進行，主進程只負責轉發結果。
+            </div>
+            <ol>
+                <li>Client 發送 <code>POST /inference/chat</code> (設 <code>stream=True</code>)。</li>
+                <li><code>app.py</code> 進行預處理：
+                    <ul>
+                        <li>通過 <code>session_manager</code> 獲取歷史對話。</li>
+                        <li>通過 <code>rag_manager</code> 檢索相關文檔 (若啟用 RAG)。</li>
+                        <li>使用 <code>apply_chat_template</code> 組合最終 Prompt。</li>
+                    </ul>
+                </li>
+                <li><code>app.py</code> 呼叫 <code>model_manager.generate_stream()</code> 獲得一個迭代器。</li>
+                <li><code>ModelManager</code> 向 <strong>Request Queue</strong> 發送 <code>generate_stream</code> 指令。</li>
+                <li><strong>Worker Process</strong> 接到指令：
+                    <ul>
+                        <li>調用 <code>generator_worker.handle_generate_stream_request</code>。</li>
+                        <li>啟動一個獨立 Thread 執行 <code>model.generate()</code>。</li>
+                        <li>使用 <code>TextIteratorStreamer</code> 捕獲生成的 Token。</li>
+                        <li>將 Token 即時推送到 <strong>Data Queue</strong>。</li>
+                    </ul>
+                </li>
+                <li><code>app.py</code> 透過 SSE (Server-Sent Events) 將 Data Queue 內容即時回傳給前端。</li>
+            </ol>
+        </section>
+
+        <section id="config-guide">
+            <h2>5. 配置與參數說明</h2>
+            
+            <h3>InferenceConfig (載入模型用)</h3>
+            <pre><code>{
+  "model_name": "Qwen/Qwen2.5-14B-Instruct", // HF 模型 ID 或路徑
+  "quantization": "int4",                    // 選項: "none", "int8", "int4", "nf4"
+  "device_map": "auto",                      // 通常設為 auto
+  "max_memory": {                            // 限制各裝置記憶體用量
+    "0": "22GiB",                            // GPU 0
+    "cpu": "64GiB"                           // CPU Offload 緩衝
+  },
+  "offload_folder": "offload_dir"            // Disk Offload 路徑
+}</code></pre>
+
+            <h3>ChatRequest (對話用)</h3>
+            <pre><code>{
+  "message": "你好，請解釋一下量子力學。",
+  "stream": true,
+  "temperature": 0.7,
+  "max_new_tokens": 2048,
+  "session_id": "user-123",    // 用於保持對話記憶
+  "use_rag": true,             // 是否啟用知識庫檢索
+  "system_prompt": "You are a helpful assistant."
+}</code></pre>
+        </section>
+
+        <section id="troubleshooting">
+            <h2>6. 常見問題與處理</h2>
+            
+            <div class="card">
+                <h3>❌ Error: Out of Memory (OOM)</h3>
+                <p><strong>症狀:</strong> Worker Process 崩潰，API 返回 OOM 錯誤。</p>
+                <p><strong>解決方案:</strong></p>
+                <ul>
+                    <li>調低 <code>max_memory</code> 中的 GPU 限制，強制更多層 Offload 到 CPU。</li>
+                    <li>使用更高的量化等級 (如 int8 -> int4)。</li>
+                    <li>使用 <code>POST /inference/force_cleanup_gpu</code> 強制重啟 Worker。</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>❌ Inference Timeout</h3>
+                <p><strong>症狀:</strong> 生成時間過長導致連線中斷。</p>
+                <p><strong>解決方案:</strong></p>
+                <ul>
+                    <li>檢查是否觸發了 CPU Offload (CPU 推理極慢)。</li>
+                    <li>調整 <code>max_new_tokens</code> 參數。</li>
+                    <li>調整 <code>config.total_timeout</code>。</li>
+                </ul>
+            </div>
+            
+             <div class="card">
+                <h3>❌ Tokenizer Issue / Template Error</h3>
+                <p><strong>症狀:</strong> 回應內容包含奇怪的標籤或格式錯誤。</p>
+                <p><strong>解決方案:</strong></p>
+                <ul>
+                    <li>確認 <code>trust_remote_code=True</code> 是否啟用 (某些模型需要)。</li>
+                    <li>檢查 <code>apply_chat_template</code> 的實作是否兼容該模型。</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

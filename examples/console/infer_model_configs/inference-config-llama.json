@@ -1,0 +1,9 @@
+{
+  "base_model": "unsloth/Qwen3.5-35B-A3B-GGUF",
+  "model_path": "/path/to/your/model.gguf",
+  "engine": "llama_server",
+  "max_memory": null,
+  "n_gpu_layers": 10,
+  "n_ctx": 262144,
+  "n_batch": 512
+}
