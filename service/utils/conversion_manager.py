@@ -7,7 +7,7 @@ import tempfile
 import threading
 import logging
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Callable
 from service.model_registry import model_registry
 from service.settings import HF_HOME
 
@@ -227,6 +227,8 @@ class ConversionManager:
         outtype: str,
         base_model_path: Optional[str] = None,
         register_model: bool = True,
+        work_dir: Optional[str] = None,
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         """Convert HF/LoRA model to GGUF synchronously."""
         temp_dir = None
@@ -235,6 +237,10 @@ class ConversionManager:
         target_model_path = model_path
         env = self._build_env()
 
+        if work_dir:
+            env["TMPDIR"] = work_dir
+            os.makedirs(work_dir, exist_ok=True)
+
         try:
             if is_lora:
                 if not base_model_path:
@@ -242,11 +248,14 @@ class ConversionManager:
                 if not base_model_path:
                     raise ValueError("Base model path is required for LoRA conversion")
 
-                temp_dir = tempfile.mkdtemp(prefix="lora_merged_")
+                temp_dir = tempfile.mkdtemp(dir=work_dir, prefix="lora_merged_")
                 merged_model_dir = os.path.join(temp_dir, "merged_model")
                 offload_dir = os.path.join(temp_dir, "offload")
                 os.makedirs(merged_model_dir, exist_ok=True)
                 os.makedirs(offload_dir, exist_ok=True)
+
+                if status_callback:
+                    status_callback("merge fine-tune")
 
                 merge_cmd = [
                     sys.executable,
@@ -260,8 +269,14 @@ class ConversionManager:
                 self._run_command(merge_cmd, env=env)
                 target_model_path = merged_model_dir
 
+                if status_callback:
+                    status_callback("complete")
+
             if not os.path.exists(script_to_run):
                 raise FileNotFoundError(f"Conversion script not found at {script_to_run}")
+
+            if status_callback:
+                status_callback("convert to gguf")
 
             convert_cmd = [
                 sys.executable,
@@ -272,6 +287,8 @@ class ConversionManager:
                 "--outfile",
                 output_path,
             ]
+            if work_dir:
+                convert_cmd.append("--use-temp-file")
             self._run_command(convert_cmd, env=env)
 
             actual_output_file = self._resolve_output_file(output_path)
@@ -302,6 +319,8 @@ class ConversionManager:
         intermediate_outtype: str = "f16",
         quantization_type: str = "Q4_K_M",
         base_model_path: Optional[str] = None,
+        work_dir: Optional[str] = None,
+        status_callback: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, str]:
         """Convert a training output to GGUF and quantize it.
 
@@ -321,6 +340,8 @@ class ConversionManager:
             outtype=intermediate_outtype,
             base_model_path=base_model_path,
             register_model=False,
+            work_dir=work_dir,
+            status_callback=status_callback,
         )
 
         quantize_binary = self.quantize_binary or self._resolve_quantize_binary()
@@ -339,6 +360,9 @@ class ConversionManager:
             quantization_type,
         ]
         self._run_command(quantize_cmd, env=self._build_env())
+
+        if status_callback:
+            status_callback("complete")
 
         is_lora = bool(conversion_result.get("is_lora"))
         self._register_gguf_model(

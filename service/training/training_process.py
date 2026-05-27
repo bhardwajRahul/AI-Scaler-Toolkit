@@ -25,7 +25,7 @@ from dataclasses import asdict
 from multiprocessing import Process, Queue, Event
 from multiprocessing.synchronize import Event as EventClass
 from queue import Empty
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 
 # Import settings BEFORE torch/transformers (sets HF_HOME environment variable)
 from ..settings import configure_logging, HF_HOME, REDIS_HOST, REDIS_PORT, REDIS_DB
@@ -344,7 +344,10 @@ def _cleanup_training_resources(
     logger.info("[TrainingWorker] Resource cleanup completed")
 
 
-def _convert_training_output_to_q4_k_m(training_config: TrainingConfig) -> Dict[str, str]:
+def _convert_training_output_to_q4_k_m(
+    training_config: TrainingConfig,
+    status_callback: Optional[Callable[[str], None]] = None,
+) -> Dict[str, str]:
     """Convert the saved training output to GGUF and quantize it to Q4_K_M."""
     output_dir = str(training_config.output_dir)
     logger.info(
@@ -356,6 +359,8 @@ def _convert_training_output_to_q4_k_m(training_config: TrainingConfig) -> Dict[
         output_dir=output_dir,
         intermediate_outtype="f16",
         quantization_type="Q4_K_M",
+        work_dir=training_config.offload_folder,
+        status_callback=status_callback,
     )
     logger.info(
         "[TrainingWorker] Post-training GGUF conversion completed: %s",
@@ -441,6 +446,9 @@ def _training_worker_process(
                     cfg_dict = cmd.get("config", {})
                     training_config = TrainingConfig(**cfg_dict)
 
+                    current_nodes = ["start fine-tune"]
+                    status_q.put({"status": "node", "node": " -> ".join(current_nodes)})
+
                     # Init Redis in worker for passive logging (no API required)
                     if redis and worker_session_id:
                         try:
@@ -453,6 +461,8 @@ def _training_worker_process(
                     ds_config = None
                     if getattr(training_config, "use_deepspeed", False):
                         ds_config = _resolve_deepspeed_config(training_config)
+                        current_nodes.append("inititial deepspeed")
+                        status_q.put({"status": "node", "node": " -> ".join(current_nodes)})
 
                     # 檢查輸出目錄是否已有檔案存在
                     from pathlib import Path
@@ -683,7 +693,11 @@ def _training_worker_process(
                     trainer.train()
 
                     # 7. Save Results
+                    current_nodes.append("save fine-tune")
+                    status_q.put({"status": "node", "node": " -> ".join(current_nodes)})
                     save_training_results(trainer, tokenizer, training_config)
+                    current_nodes.append("complete")
+                    status_q.put({"status": "node", "node": " -> ".join(current_nodes)})
                     
                     # 訓練成功完成後，先清理 GPU / DeepSpeed 資源，再進行 GGUF 轉換
                     _cleanup_training_resources(
@@ -702,7 +716,11 @@ def _training_worker_process(
                     dataset = None
 
                     logger.info("[TrainingWorker] Saved training artifacts. Starting GGUF Q4_K_M conversion...")
-                    conversion_result = _convert_training_output_to_q4_k_m(training_config)
+                    def conversion_callback(step: str):
+                        current_nodes.append(step)
+                        status_q.put({"status": "node", "node": " -> ".join(current_nodes)})
+
+                    conversion_result = _convert_training_output_to_q4_k_m(training_config, status_callback=conversion_callback)
 
                     status_q.put(
                         {
@@ -949,6 +967,7 @@ class TrainingProcessManager:
         logger.info("Cleared previous training status before starting new training")
         
         self._ensure_process()
+        self.last_error = "start fine-tune"
         assert self.request_q is not None
         self.current_config = config
         
@@ -1016,9 +1035,12 @@ class TrainingProcessManager:
                 # Queue might be closed or None during cleanup race condition
                 break
             status = msg.get("status")
-            # Only update current_status for state-changing statuses, not "progress"
-            if status and status != "progress":
+            # Only update current_status for state-changing statuses, not "progress" or "node"
+            if status and status not in {"progress", "node"}:
                 self.current_status = status
+
+            if status == "node":
+                self.last_error = msg.get("node")
 
             if status == "error":
                 self.last_error = msg.get("error")
@@ -1091,7 +1113,7 @@ class TrainingProcessManager:
             total_epochs=self.current_config.num_train_epochs if self.current_config else None,
             status=self.current_status,
             session_id=self.current_session_id,
-            error=None,  # 訓練中沒有錯誤
+            error=self.last_error,  # 訓練中將進度狀態傳給 error 供前端顯示
             config=self.current_config,
         )
     

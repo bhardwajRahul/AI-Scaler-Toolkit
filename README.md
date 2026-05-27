@@ -442,13 +442,13 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 #### Linux
 
 ```bash
-curl http://127.0.0.1:8000/v1/models
+curl http://127.0.0.1:8000/config/models
 ```
 
 #### Windows（PowerShell）
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/v1/models
+Invoke-RestMethod http://127.0.0.1:8000/config/models
 ```
 
 ### 8.3 先載入模型，再送出聊天請求
@@ -482,7 +482,7 @@ Invoke-RestMethod http://127.0.0.1:8000/inference/load_model `
 curl http://127.0.0.1:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen3-4B",
+    "model": "trusta-ast-default",
     "messages": [{"role": "user", "content": "你好，請簡單自我介紹"}],
     "stream": false
   }'
@@ -494,7 +494,7 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 Invoke-RestMethod http://127.0.0.1:8000/v1/chat/completions `
   -Method POST `
   -ContentType "application/json" `
-  -Body '{"model":"Qwen/Qwen3-4B","messages":[{"role":"user","content":"你好"}],"stream":false}'
+  -Body '{"model":"trusta-ast-default","messages":[{"role":"user","content":"你好"}],"stream":false}'
 ```
 
 ---
@@ -507,6 +507,8 @@ Invoke-RestMethod http://127.0.0.1:8000/v1/chat/completions `
 - `GET /health`
 - `GET /v1/models`
 - `POST /v1/chat/completions`
+
+`/v1/models` returns the completion alias `trusta-ast-default` when a model is loaded. Use the same alias in `/v1/chat/completions` requests.
 
 ### 推論管理
 

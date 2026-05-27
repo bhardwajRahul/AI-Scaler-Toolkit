@@ -35,25 +35,32 @@ def load_training_dataset(dataset_path: str):
                 first_example = dataset[0]
                 logger.debug(f"[DatasetLoader] First example keys: {list(first_example.keys())}")
                 
-                # 如果同時有 prompt 和 completion 欄位，自動合併為 text 欄位
-                if "prompt" in first_example and "completion" in first_example:
-                    logger.info("[DatasetLoader] Detected prompt-completion format, converting to text format...")
-                    
-                    def combine_prompt_completion(example):
-                        """將 prompt 和 completion 合併為單一 text 欄位"""
-                        # 使用換行符分隔 prompt 和 completion
-                        prompt = str(example.get("prompt", ""))
-                        completion = str(example.get("completion", ""))
-                        example["text"] = f"{prompt}\n{completion}"
-                        return example
-                    
-                    dataset = dataset.map(combine_prompt_completion)
-                    logger.info(f"[DatasetLoader] Converted {len(dataset)} examples from prompt-completion to text format")
-                
-                # 驗證數據集是否有必要的欄位
+                # 模式三：OpenAI chat format（messages 欄位）
+                # TRL SFTTrainer >= 0.12 會自動套用 tokenizer.apply_chat_template
+                if "messages" in first_example:
+                    messages = first_example["messages"]
+                    if not isinstance(messages, list) or not all(
+                        isinstance(m, dict) and "role" in m and "content" in m
+                        for m in messages
+                    ):
+                        raise ValueError(
+                            "Dataset 'messages' field must be a list of {role, content} dicts. "
+                            f"Got: {messages[:1]}"
+                        )
+                    logger.info(
+                        "[DatasetLoader] Detected OpenAI chat format (messages field); "
+                        "passing through for TRL to apply chat template"
+                    )
+
+                # 模式二：prompt + completion 雙欄位
+                elif "prompt" in first_example and "completion" in first_example:
+                    logger.info("[DatasetLoader] Detected prompt-completion format")
+
+                # 模式一：單一 text 欄位
                 elif "text" not in first_example:
                     raise ValueError(
-                        f"Dataset must have either 'text' field or both 'prompt' and 'completion' fields. "
+                        f"Dataset must have a 'messages' field (OpenAI chat format), "
+                        f"both 'prompt' and 'completion' fields, or a 'text' field. "
                         f"Found fields: {list(first_example.keys())}"
                     )
             else:

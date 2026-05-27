@@ -118,10 +118,21 @@ def run_sft_training(
     dataset_text_field = None
 
     # Determine dataset mode
+    # messages_field 可以明確指定欄位名稱，或自動偵測 dataset 中的 messages 欄位
+    messages_col = training_config.messages_field or "messages"
+    is_chat_format = messages_col in dataset.column_names
     is_prompt_completion = bool(training_config.prompt_field and training_config.completion_field)
-    if is_prompt_completion:
-        # Use TRL's native prompt+completion mode so it can mask prompt tokens.
-        # TRL expects columns named exactly: "prompt" and "completion".
+
+    if is_chat_format and not is_prompt_completion:
+        # 模式三：OpenAI chat format — TRL applies tokenizer.apply_chat_template automatically.
+        # dataset_text_field must NOT be set so TRL uses the messages column directly.
+        dataset_text_field = None
+        logger.info(
+            "[SFTRunner] Dataset mode=chat/messages; Loss mode=completion_only; "
+            "TRL will apply tokenizer chat template"
+        )
+    elif is_prompt_completion:
+        # 模式二：prompt + completion 雙欄位
         prompt_col = training_config.prompt_field
         completion_col = training_config.completion_field
         logger.info(
@@ -144,6 +155,7 @@ def run_sft_training(
             logger.info(f"[SFTRunner] Renaming dataset columns for TRL: {rename_map}")
             dataset = dataset.rename_columns(rename_map)
     else:
+        # 模式一：單一 text 欄位
         dataset_text_field = training_config.text_field or "text"
         logger.info(
             f"[SFTRunner] Dataset mode=text; Loss mode=full_sequence; dataset_text_field='{dataset_text_field}'"
@@ -189,9 +201,10 @@ def run_sft_training(
     sft_config_kwargs["packing"] = training_config.packing
 
     # Loss masking policy:
+    # - chat format: only compute loss on assistant tokens (TRL handles masking)
     # - prompt+completion mode: only compute loss on completion tokens
     # - text mode: compute loss on the full sequence
-    sft_config_kwargs["completion_only_loss"] = bool(is_prompt_completion)
+    sft_config_kwargs["completion_only_loss"] = bool(is_chat_format or is_prompt_completion)
     logger.info(
         f"[SFTRunner] SFTConfig.completion_only_loss={sft_config_kwargs['completion_only_loss']}"
     )

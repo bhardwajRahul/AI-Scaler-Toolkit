@@ -581,10 +581,10 @@ class TrainingConfig(BaseModel):
         default=2048, description="訓練時的最大 token 長度，超過會被截斷"
     )
 
-    # Dataset field configuration - 兩種訓練模式二擇一
+    # Dataset field configuration - 三種訓練模式三擇一
     text_field: Optional[str] = Field(
         default="text",
-        description="【訓練模式一】單欄位模式：用前面對話預測後面對話。指定 dataset 中的欄位名稱，例如 'text'。與 prompt_field/completion_field 二擇一",
+        description="【訓練模式一】單欄位模式：用前面對話預測後面對話。指定 dataset 中的欄位名稱，例如 'text'。與其他模式三擇一",
     )
     prompt_field: Optional[str] = Field(
         default=None,
@@ -593,6 +593,10 @@ class TrainingConfig(BaseModel):
     completion_field: Optional[str] = Field(
         default=None,
         description="【訓練模式二】雙欄位模式：區分提問與回答。指定 dataset 中 completion 欄位名稱，例如 'completion'。需搭配 prompt_field 使用",
+    )
+    messages_field: Optional[str] = Field(
+        default=None,
+        description="【訓練模式三】OpenAI chat format 模式：dataset 中含有 messages 欄位（list of {role, content}）。TRL 會自動套用模型的 chat template，並只對 assistant tokens 計算 loss。留空時若 dataset 有 messages 欄位會自動偵測",
     )
     save_tokenizer: bool = Field(
         default=True, description="訓練完成後是否保存 tokenizer 到輸出目錄"
@@ -629,6 +633,7 @@ class TrainingConfig(BaseModel):
         "text_field",
         "prompt_field",
         "completion_field",
+        "messages_field",
         "deepspeed_config",
         "deepspeed_profile",
         mode="before",
@@ -652,16 +657,20 @@ class TrainingConfig(BaseModel):
         """Validate dataset field configuration.
 
         - prompt_field 與 completion_field 必須同時提供或同時不提供。
-        - 兩者皆不提供時，會使用 text_field（預設為 "text"）。
-
-        注意：是否使用 SFTTrainer 由 use_sft_trainer 決定，
-        不是由 prompt/completion 欄位是否存在自動決定。
+        - messages_field 不可與 prompt_field/completion_field 同時設定。
+        - 三種模式互斥（但若都未設定，dataset_loader 會自動偵測）。
         """
         has_prompt = bool(self.prompt_field)
         has_completion = bool(self.completion_field)
+        has_messages = bool(self.messages_field)
+
         if has_prompt != has_completion:
             raise ValueError(
                 "prompt_field 與 completion_field 必須同時設定或同時為空/None。"
+            )
+        if has_messages and (has_prompt or has_completion):
+            raise ValueError(
+                "messages_field 不可與 prompt_field/completion_field 同時設定，三種訓練模式互斥。"
             )
         return self
 
