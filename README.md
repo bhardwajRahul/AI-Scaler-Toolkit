@@ -19,7 +19,7 @@ GitHub AST 是一個以 FastAPI 為核心的 LLM 後端服務，提供：
 
 ## 1. 第一次初始化快速流程
 
-### Linux（建議先走 CUDA）
+### Linux（預設建議走 CUDA）
 
 ```bash
 mkdir -p /home/test/project
@@ -31,7 +31,7 @@ mkdir -p logs .cache/huggingface runtime_data/inference_offload runtime_data/fin
 cp .env.example .env
 # 編輯 .env，優先修改 HF_HOME、LOG_DIR、SERVICE_HOST、SERVICE_PORT
 
-TRUSTA_ACCEL=xpu bash deploy/linux/setup_env.sh
+TRUSTA_ACCEL=cuda bash deploy/linux/setup_env.sh
 bash deploy/linux/run_service.sh
 ```
 
@@ -39,7 +39,9 @@ bash deploy/linux/run_service.sh
 
 - `http://127.0.0.1:8000/`
 
-若要改走 NVIDIA CUDA，將 `TRUSTA_ACCEL=xpu` 改成 `TRUSTA_ACCEL=cuda`。
+若主機沒有 NVIDIA CUDA 環境，再改用 `TRUSTA_ACCEL=xpu`。
+
+> **提醒**：目前 fine-tune 功能僅支援 **Linux + CUDA** 環境。
 
 ### Windows（建議先走 XPU）
 
@@ -141,6 +143,8 @@ source "$HOME/.local/bin/env"
 - 私有 Hugging Face 模型：需準備 `HF_TOKEN`
 
 > **注意**：vLLM 僅支援 **Linux + CUDA**；Windows 平台無法使用 vLLM engine。
+>
+> **注意**：fine-tune 功能目前也僅支援 **Linux + CUDA**；Windows、Linux + XPU、純 CPU 環境皆不支援。
 >
 > 前端靜態檔已包含在專案內，不需要另外安裝 Node.js 或重新建置前端。
 
@@ -305,14 +309,14 @@ sudo visudo -f /etc/sudoers.d/ast-dmidecode
 
 ```bash
 cd /home/test/project/AI-Scaler-Toolkit
-TRUSTA_ACCEL=xpu bash deploy/linux/setup_env.sh
+TRUSTA_ACCEL=cuda bash deploy/linux/setup_env.sh
 ```
 
-若要改用 CUDA：
+若主機沒有 NVIDIA CUDA 環境，可改用 XPU：
 
 ```bash
 cd /home/test/project/AI-Scaler-Toolkit
-TRUSTA_ACCEL=cuda bash deploy/linux/setup_env.sh
+TRUSTA_ACCEL=xpu bash deploy/linux/setup_env.sh
 ```
 
 跳過 vLLM 環境建置：
@@ -323,6 +327,8 @@ TRUSTA_ACCEL=cuda TRUSTA_SETUP_VLLM=0 bash deploy/linux/setup_env.sh
 ```
 
 腳本會在 `service/.venv` 建立環境；**不需要另外手動啟動虛擬環境**。
+
+> **提醒**：若要使用 fine-tune，請使用 **Linux + CUDA** 安裝流程。
 
 ### Windows
 
