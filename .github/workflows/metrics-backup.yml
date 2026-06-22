@@ -1,0 +1,186 @@
+name: Archive GitHub Metrics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  archive-metrics:
+    runs-on: ubuntu-latest
+    env:
+      GH_METRICS_TOKEN: ${{ secrets.GH_METRICS_TOKEN }}
+    steps:
+      - name: Validate required secret
+        run: |
+          if [[ -z "$GH_METRICS_TOKEN" ]]; then
+            echo "Missing required secret: GH_METRICS_TOKEN"
+            echo "Create a Personal Access Token with repository access and store it in Actions secrets."
+            exit 1
+          fi
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_METRICS_TOKEN }}
+
+      - name: Collect traffic and release metrics
+        uses: actions/github-script@v7
+        env:
+          GH_METRICS_TOKEN: ${{ secrets.GH_METRICS_TOKEN }}
+        with:
+          github-token: ${{ secrets.GH_METRICS_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const csvEscape = (value) => {
+              const normalized = value === null || value === undefined ? '' : String(value);
+              return `"${normalized.replace(/"/g, '""')}"`;
+            };
+
+            const [owner, repo] = context.repo.owner && context.repo.repo
+              ? [context.repo.owner, context.repo.repo]
+              : process.env.GITHUB_REPOSITORY.split('/');
+
+            const snapshotDate = new Date().toISOString().slice(0, 10);
+            const snapshotDir = path.join(process.env.GITHUB_WORKSPACE, 'data', 'metrics', 'snapshots');
+            const latestDir = path.join(process.env.GITHUB_WORKSPACE, 'data', 'metrics', 'latest');
+
+            fs.mkdirSync(snapshotDir, { recursive: true });
+            fs.mkdirSync(latestDir, { recursive: true });
+
+            const views = await github.request('GET /repos/{owner}/{repo}/traffic/views', {
+              owner,
+              repo,
+              per: 'day',
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+
+            const clones = await github.request('GET /repos/{owner}/{repo}/traffic/clones', {
+              owner,
+              repo,
+              per: 'day',
+              headers: {
+                'X-GitHub-Api-Version': '2022-11-28'
+              }
+            });
+
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner,
+              repo,
+              per_page: 100
+            });
+
+            const normalizedReleases = releases.map((release) => {
+              const assets = release.assets.map((asset) => ({
+                name: asset.name,
+                label: asset.label,
+                content_type: asset.content_type,
+                size: asset.size,
+                state: asset.state,
+                download_count: asset.download_count,
+                created_at: asset.created_at,
+                updated_at: asset.updated_at,
+                browser_download_url: asset.browser_download_url
+              }));
+
+              return {
+                id: release.id,
+                name: release.name,
+                tag_name: release.tag_name,
+                draft: release.draft,
+                prerelease: release.prerelease,
+                created_at: release.created_at,
+                published_at: release.published_at,
+                html_url: release.html_url,
+                assets,
+                asset_count: assets.length,
+                total_asset_downloads: assets.reduce((sum, asset) => sum + asset.download_count, 0)
+              };
+            });
+
+            const releaseAssetCount = normalizedReleases.reduce((sum, release) => sum + release.asset_count, 0);
+            const releaseDownloadCount = normalizedReleases.reduce((sum, release) => sum + release.total_asset_downloads, 0);
+
+            const snapshot = {
+              generated_at: new Date().toISOString(),
+              repository: `${owner}/${repo}`,
+              traffic: {
+                views: views.data,
+                clones: clones.data
+              },
+              releases: {
+                release_count: normalizedReleases.length,
+                asset_count: releaseAssetCount,
+                total_asset_downloads: releaseDownloadCount,
+                items: normalizedReleases
+              }
+            };
+
+            const snapshotPath = path.join(snapshotDir, `${snapshotDate}.json`);
+            fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2) + '\n');
+            fs.writeFileSync(path.join(latestDir, 'metrics-summary.json'), JSON.stringify(snapshot, null, 2) + '\n');
+            fs.writeFileSync(path.join(latestDir, 'traffic.json'), JSON.stringify(snapshot.traffic, null, 2) + '\n');
+            fs.writeFileSync(path.join(latestDir, 'releases.json'), JSON.stringify(snapshot.releases, null, 2) + '\n');
+
+            const trafficRows = [
+              'snapshot_date,metric,timestamp,count,uniques',
+              ...views.data.views.map((entry) => `${snapshotDate},views,${entry.timestamp},${entry.count},${entry.uniques}`),
+              ...clones.data.clones.map((entry) => `${snapshotDate},clones,${entry.timestamp},${entry.count},${entry.uniques}`)
+            ];
+            fs.writeFileSync(path.join(latestDir, 'traffic-daily.csv'), trafficRows.join('\n') + '\n');
+
+            const releaseRows = [
+              'snapshot_date,release_name,tag_name,published_at,asset_name,download_count,size,state,browser_download_url',
+              ...normalizedReleases.flatMap((release) => {
+                if (release.assets.length === 0) {
+                  return [[
+                    snapshotDate,
+                    csvEscape(release.name),
+                    csvEscape(release.tag_name),
+                    csvEscape(release.published_at),
+                    csvEscape(''),
+                    0,
+                    '',
+                    '',
+                    csvEscape('')
+                  ].join(',')];
+                }
+
+                return release.assets.map((asset) => (
+                  [
+                    snapshotDate,
+                    csvEscape(release.name),
+                    csvEscape(release.tag_name),
+                    csvEscape(release.published_at),
+                    csvEscape(asset.name),
+                    asset.download_count,
+                    asset.size,
+                    csvEscape(asset.state),
+                    csvEscape(asset.browser_download_url)
+                  ].join(',')
+                ));
+              })
+            ];
+            fs.writeFileSync(path.join(latestDir, 'release-assets.csv'), releaseRows.join('\n') + '\n');
+
+      - name: Commit archived metrics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/metrics
+
+          if git diff --cached --quiet --exit-code; then
+            echo "No metrics changes to commit"
+            exit 0
+          fi
+
+          git commit -m "chore: archive github metrics"
+          git push

@@ -28,6 +28,10 @@ service/utils/llama.cpp/
 *.swo
 *~
 
+# LLM wiki local metadata
+Trusta-AST-LLM-wiki/.llm-wiki/
+Trusta-AST-LLM-wiki/.obsidian/
+
 # Logs
 *.log
 logs/
