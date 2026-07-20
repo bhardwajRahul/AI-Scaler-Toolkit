@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BASE_URL = "http://localhost:8000"
-DATASET_PATH = os.path.abspath("dataset/dataset.jsonl")
+DATASET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dataset", "dataset.jsonl")
 
 # Define test configurations
 # Note: Ensure these base models exist in models_registry.json
