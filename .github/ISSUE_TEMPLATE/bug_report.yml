@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a problem so we can fix it
+title: "fix: <short description>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > The suggested title follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
+        > (`fix: ...`). Keep that prefix if this is a defect report.
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run '...'
+        2. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: OS and accelerator you are running on.
+      options:
+        - Linux / CUDA
+        - Linux / XPU
+        - Windows / CUDA
+        - Windows / XPU
+        - CPU only
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Logs / additional context
+      description: Relevant logs, tracebacks, versions, or screenshots.
+      render: shell
+    validations:
+      required: false
