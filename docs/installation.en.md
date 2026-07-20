@@ -8,7 +8,7 @@
 
 | Tool | Description |
 |------|-------------|
-| Git | With submodule support |
+| Git | For cloning and the setup-time llama.cpp fetch |
 | Python 3.12+ | Runs the service |
 | `uv` | Python package / environment management |
 | C/C++ toolchain | Required when compiling llama.cpp |
@@ -56,14 +56,14 @@ source "$HOME/.local/bin/env"
 
 ## Download the Project from GitHub
 
-This project includes Git submodules. **Use `--recursive` when cloning.**
+A plain `git clone` is enough — there are no Git submodules. (`llama.cpp` is fetched at setup time; see below.)
 
 #### Linux
 
 ```bash
 mkdir -p /home/test/project
 cd /home/test/project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 ```
 
@@ -72,14 +72,9 @@ cd AI-Scaler-Toolkit
 ```powershell
 mkdir C:\Users\<user>\project
 cd C:\Users\<user>\project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 ```
-
-> If you already cloned without it, run:
-> ```bash
-> git submodule update --init --recursive
-> ```
 
 ---
 
@@ -252,7 +247,7 @@ The script creates the environment in `service\.venv`; **you do not need to acti
 
 ### If You Want to Use `llama-server`
 
-The `llama.cpp` source is included as the `src/service/utils/llama.cpp` submodule and must be compiled manually.
+The `llama.cpp` source is fetched at setup time (`TRUSTA_SETUP_LLAMA=1 bash scripts/linux/setup_env.sh`, or `.\scripts\windows\setup_env.ps1 -SetupLlama` on Windows) into `src/service/utils/llama.cpp`, then compiled manually:
 
 #### Linux
 
@@ -272,7 +267,7 @@ cmake --build build -j
 #### Windows (PowerShell, requires Visual Studio Build Tools 2022)
 
 ```powershell
-cd C:\Users\<user>\project\AI-Scaler-Toolkit\service\utils\llama.cpp
+cd C:\Users\<user>\project\AI-Scaler-Toolkit\src\service\utils\llama.cpp
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release -j
 ```

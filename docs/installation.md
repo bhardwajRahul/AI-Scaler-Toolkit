@@ -8,7 +8,7 @@
 
 | 工具 | 說明 |
 |------|------|
-| Git | 含 submodule 支援 |
+| Git | 用於 clone 與安裝期抓取 llama.cpp |
 | Python 3.12+ | 執行服務本體 |
 | `uv` | Python 套件 / 環境管理 |
 | C/C++ 編譯工具鏈 | 編譯 llama.cpp 時需要 |
@@ -56,14 +56,14 @@ source "$HOME/.local/bin/env"
 
 ## 從 GitHub 下載專案
 
-本專案含 Git submodule，**clone 時請加上 `--recursive`**。
+一般 `git clone` 即可 —— 本專案已無 Git submodule。（`llama.cpp` 於安裝期抓取,見下方。）
 
 #### Linux
 
 ```bash
 mkdir -p /home/test/project
 cd /home/test/project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 ```
 
@@ -72,14 +72,9 @@ cd AI-Scaler-Toolkit
 ```powershell
 mkdir C:\Users\<user>\project
 cd C:\Users\<user>\project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 ```
-
-> 如果已用一般方式 clone，補執行：
-> ```bash
-> git submodule update --init --recursive
-> ```
 
 ---
 
@@ -252,7 +247,7 @@ cd C:\Users\<user>\project\AI-Scaler-Toolkit
 
 ### 若要使用 llama-server
 
-`llama.cpp` 來源在 submodule `src/service/utils/llama.cpp`，需自行編譯。
+`llama.cpp` 來源於安裝期抓取（`TRUSTA_SETUP_LLAMA=1 bash scripts/linux/setup_env.sh`,Windows 用 `.\scripts\windows\setup_env.ps1 -SetupLlama`）到 `src/service/utils/llama.cpp`,再自行編譯：
 
 #### Linux
 
@@ -272,7 +267,7 @@ cmake --build build -j
 #### Windows（PowerShell，需 Visual Studio Build Tools 2022）
 
 ```powershell
-cd C:\Users\<user>\project\AI-Scaler-Toolkit\service\utils\llama.cpp
+cd C:\Users\<user>\project\AI-Scaler-Toolkit\src\service\utils\llama.cpp
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release -j
 ```

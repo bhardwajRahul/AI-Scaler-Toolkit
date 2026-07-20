@@ -36,7 +36,7 @@ AI Scaler Toolkit 是一個以 FastAPI 為核心的 LLM 後端服務，提供：
 ```bash
 mkdir -p /home/test/project
 cd /home/test/project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 
 mkdir -p logs .cache/huggingface
@@ -60,7 +60,7 @@ bash scripts/linux/run_service.sh
 ```powershell
 mkdir C:\Users\<user>\project
 cd C:\Users\<user>\project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 
 New-Item -ItemType Directory -Force logs, .cache\huggingface

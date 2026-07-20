@@ -36,7 +36,7 @@ This document covers both Linux and Windows. The quick-start initialization flow
 ```bash
 mkdir -p /home/test/project
 cd /home/test/project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 
 mkdir -p logs .cache/huggingface
@@ -60,7 +60,7 @@ If the machine does not have an NVIDIA CUDA environment, use `TRUSTA_ACCEL=xpu` 
 ```powershell
 mkdir C:\Users\<user>\project
 cd C:\Users\<user>\project
-git clone --recursive <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
+git clone <YOUR_GITHUB_REPOSITORY_URL> AI-Scaler-Toolkit
 cd AI-Scaler-Toolkit
 
 New-Item -ItemType Directory -Force logs, .cache\huggingface
