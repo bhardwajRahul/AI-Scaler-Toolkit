@@ -2,9 +2,11 @@
 # 用法：
 #   .\setup_env.ps1              # 自動偵測
 #   .\setup_env.ps1 -Accel xpu  # 手動指定 cuda | xpu
+#   .\setup_env.ps1 -SetupLlama # 一併取得 llama.cpp 原始碼（選配，僅 llama-server 需要）
 param(
     [ValidateSet("cuda", "xpu")]
-    [string]$Accel = ""
+    [string]$Accel = "",
+    [switch]$SetupLlama
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +14,26 @@ $ErrorActionPreference = "Stop"
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = (Resolve-Path "$ScriptDir\..\..\").Path
 $ServiceDir  = Join-Path $ProjectRoot "src\service"
+
+# llama.cpp（選配，僅 llama-server 需要）：改由安裝期抓取，取代原本的 git submodule。
+# 版本 pin 在此手動維護；要 bump 版本就改 $LlamaCppRef。
+$LlamaCppDir = Join-Path $ServiceDir "utils\llama.cpp"
+$LlamaCppUrl = "https://github.com/ggml-org/llama.cpp"
+$LlamaCppRef = "50494a28003d15bb0b9a7a848fd5b6b713f39835"
+
+function Setup-LlamaCpp {
+    if (Test-Path (Join-Path $LlamaCppDir ".git")) {
+        Write-Host "[setup_env] 更新既有 llama.cpp：$LlamaCppDir"
+        git -C $LlamaCppDir fetch origin
+    } else {
+        Write-Host "[setup_env] clone llama.cpp：$LlamaCppUrl"
+        if (Test-Path $LlamaCppDir) { Remove-Item -Recurse -Force $LlamaCppDir }
+        git clone $LlamaCppUrl $LlamaCppDir
+    }
+    Write-Host "[setup_env] checkout 釘死版本 $LlamaCppRef"
+    git -C $LlamaCppDir checkout --detach $LlamaCppRef
+    Write-Host "[setup_env] llama.cpp 就緒；如需 llama-server 請自行 build（見 README）"
+}
 
 # 自動偵測：有 nvidia-smi 就 CUDA，否則預設 XPU（Intel iGPU / Arc）
 if (-not $Accel) {
@@ -50,10 +72,17 @@ $env:CMAKE_ARGS = $CmakeFlag
 Write-Host "[setup_env] CMAKE_ARGS=$CmakeFlag  uv sync --extra $Accel"
 uv sync --extra $Accel
 
+if ($SetupLlama -or $env:TRUSTA_SETUP_LLAMA -eq "1") {
+    Setup-LlamaCpp
+} else {
+    Write-Host "[setup_env] 跳過 llama.cpp 取得（選配；如需 llama-server 加 -SetupLlama）"
+}
+
 Write-Host ""
 Write-Host "=========================================="
 Write-Host "  環境設定完成"
 Write-Host "  Accelerator : $Accel"
 Write-Host "  CMAKE_ARGS  : $CmakeFlag"
 Write-Host "  Service Dir : $ServiceDir"
+Write-Host "  llama.cpp   : $(if ($SetupLlama -or $env:TRUSTA_SETUP_LLAMA -eq '1') { $LlamaCppRef } else { 'skipped' })"
 Write-Host "=========================================="
