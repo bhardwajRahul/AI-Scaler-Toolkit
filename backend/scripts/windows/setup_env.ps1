@@ -1,4 +1,4 @@
-# 偵測 GPU 種類，以對應的 cmake 旗標與 uv extra 建立 Python 環境。
+﻿# 偵測 GPU 種類，以對應的 cmake 旗標與 uv extra 建立 Python 環境。
 # 用法：
 #   .\setup_env.ps1              # 自動偵測
 #   .\setup_env.ps1 -Accel xpu  # 手動指定 cuda | xpu
