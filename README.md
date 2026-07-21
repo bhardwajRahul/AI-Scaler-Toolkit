@@ -1,9 +1,9 @@
 # AI Scaler Toolkit
 
 <p align="center">
-  <img src="frontend/dist/Trusta-16.ico" alt="Trusta" width="32" height="32">
+  <img src="assets/trusta-icon.png" alt="Trusta" width="32" height="32">
   &nbsp;&nbsp;
-  <img src="frontend/dist_client/Adata.ico" alt="ADATA" width="32" height="32">
+  <img src="assets/adata-icon.png" alt="ADATA" width="32" height="32">
 </p>
 
 <p align="center">
