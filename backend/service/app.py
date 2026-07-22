@@ -571,13 +571,14 @@ app = FastAPI(
 # ==================== Frontend Static Files ====================
 # React build (e.g. created by `npm run build`). Located by trying known
 # candidate locations so the package stays relocatable across layouts
-# (e.g. repo-root/Trusta-AST-Frontend or src/frontend); the first existing
-# one wins. Set FRONTEND_DIST_DIR to override explicitly.
+# (e.g. <base>/frontend, <base>/Trusta-AST-Frontend, or repo-root/frontend one
+# level up); the first existing one wins.
 _frontend_base = Path(__file__).resolve().parent.parent
 _frontend_candidates = [
-    Path(os.environ["FRONTEND_DIST_DIR"]) if os.getenv("FRONTEND_DIST_DIR") else None,
     _frontend_base / "frontend" / "dist",
     _frontend_base / "Trusta-AST-Frontend" / "dist",
+    _frontend_base.parent / "frontend" / "dist",
+    _frontend_base.parent / "Trusta-AST-Frontend" / "dist",
 ]
 FRONTEND_DIST = next(
     (p for p in _frontend_candidates if p and p.exists()),
